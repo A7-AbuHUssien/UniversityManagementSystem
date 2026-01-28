@@ -1,4 +1,4 @@
-namespace UniversityManagementSystem.Infrastructure.Entities;
+namespace UniversityManagementSystem.Application.Entities;
 
 public class Student : BaseEntity
 {
@@ -6,11 +6,13 @@ public class Student : BaseEntity
     public string LastName { get; set; }
     public string Email { get; set; }
     public string Phone { get; set; }
-    public DateTime DateOfBirth { get; set; }
+    public DateOnly DateOfBirth { get; set; }
 
-    // الربط مع القسم
     public int DepartmentId { get; set; }
     public Department Department { get; set; }
 
     public ICollection<Enrollment> Enrollments { get; set; }
+
+    public bool IsDeleted { get; set; }
+    public DateTime? DeletedAt { get; set; }
 }

@@ -1,4 +1,4 @@
-namespace UniversityManagementSystem.Infrastructure.Entities;
+namespace UniversityManagementSystem.Application.Entities;
 
 public enum EnrollmentStatus
 {
