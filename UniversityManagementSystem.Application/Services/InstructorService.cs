@@ -10,12 +10,10 @@ namespace UniversityManagementSystem.Application.Services;
 public class InstructorService : IInstructorService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IInstructorBusinessValidation _validator;
 
-    public InstructorService(IUnitOfWork unitOfWork, IInstructorBusinessValidation validator)
+    public InstructorService(IUnitOfWork unitOfWork)
     {
         _unitOfWork = unitOfWork;
-        _validator = validator;
     }
 
     public async Task<InstructorDto?> GetInstructorByIdAsync(int id)
@@ -33,38 +31,39 @@ public class InstructorService : IInstructorService
 
     public async Task<IEnumerable<InstructorDto>> GetInstructorsByDepartmentAsync(int departmentId)
     {
-        await _validator.CheckDepartmentExistAsync(departmentId);
-        var instractorsInDb =  await _unitOfWork.Repository<Instructor>()
+        if (!await _unitOfWork.Repository<Department>().AnyAsync(e => e.Id == departmentId))
+            throw new ArgumentException($"Department with id {departmentId} not found");
+        var instructorsInDb = await _unitOfWork.Repository<Instructor>()
             .GetAsync(e => e.DepartmentId == departmentId, includes: [e => e.Department]);
-        return instractorsInDb.Adapt<IEnumerable<InstructorDto>>();
+        return instructorsInDb.Adapt<IEnumerable<InstructorDto>>();
     }
 
     public async Task<InstructorDto> CreateInstructorAsync(InstructorDto dto)
     {
-        await _validator.CheckEmailUniqueAsync(dto.Email);
-        await _validator.CheckDepartmentExistAsync(dto.DepartmentId);
-
+        if (!(await _unitOfWork.Repository<Department>().AnyAsync(e => e.Id == dto.DepartmentId)))
+            throw new InvalidOperationException("No department with this id");
+        if (await _unitOfWork.Repository<Instructor>().AnyAsync(s => s.PersonalEmail == dto.Email))
+            throw new InvalidOperationException("Unavailable PersonalEmail");
         var entity = dto.Adapt<Instructor>();
-
         await _unitOfWork.Repository<Instructor>().CreateAsync(entity);
         await _unitOfWork.CompleteAsync();
-
         return entity.Adapt<InstructorDto>();
     }
 
     public async Task<bool> UpdateInstructorAsync(int id, InstructorDto dto)
     {
-        var inDb = await _validator.CheckInstructorExistAsync(id);
-
-        if (!string.IsNullOrWhiteSpace(dto.Email) && dto.Email != inDb.Email)
+        var inDb = await _unitOfWork.Repository<Instructor>().GetOneAsync(e => e.Id == id);
+        if (inDb is null) throw new Exception("Instructor with this id not found");
+        if (!string.IsNullOrWhiteSpace(dto.Email) && dto.Email != inDb.PersonalEmail)
         {
-            await _validator.CheckEmailUniqueAsync(dto.Email);
-            inDb.Email = dto.Email;
+            if (await _unitOfWork.Repository<Instructor>().AnyAsync(s => s.PersonalEmail == dto.Email))
+                throw new InvalidOperationException("Unavailable PersonalEmail");
+            inDb.PersonalEmail = dto.Email;
         }
 
         if (dto.DepartmentId != 0 && dto.DepartmentId != inDb.DepartmentId)
         {
-            await _validator.CheckDepartmentExistAsync(dto.DepartmentId);
+            if (dto.DepartmentName is null) throw new Exception("No department with this id");
             inDb.DepartmentId = dto.DepartmentId;
         }
 
@@ -73,7 +72,8 @@ public class InstructorService : IInstructorService
             inDb.FirstName = dto.FirstName;
             inDb.LastName = dto.LastName;
         }
-        if(String.IsNullOrWhiteSpace(dto.Specialization))
+
+        if (!String.IsNullOrWhiteSpace(dto.Specialization))
             inDb.Specialization = dto.Specialization;
 
         _unitOfWork.Repository<Instructor>().Update(inDb);

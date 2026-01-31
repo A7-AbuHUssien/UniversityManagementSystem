@@ -7,5 +7,5 @@ public class TranscriptDto
     public int Credits { get; set; }
     public decimal NumericScore { get; set; }
     public string GradeSymbol { get; set; } = "N/A";
-    public decimal GradePoints { get; set; } // Points for this specific course (e.g., 4.0)
+    public decimal GradePoints { get; set; }
 }

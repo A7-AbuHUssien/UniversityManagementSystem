@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using UniversityManagementSystem.Application.Common;
 using UniversityManagementSystem.Application.DTOs;
 using UniversityManagementSystem.Application.Interfaces.Services;
 
@@ -7,6 +9,7 @@ namespace UniversityManagementSystem.Api.Areas.Student;
 [Area("Student")]
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(AppRoles.STUDENT)]
 public class EnrollmentController : ControllerBase
 {
     private readonly IEnrollmentService _enrollmentService;

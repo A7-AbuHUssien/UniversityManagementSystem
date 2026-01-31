@@ -1,79 +1,108 @@
 using UniversityManagementSystem.Application.DTOs;
-using UniversityManagementSystem.Application.DTOs.Parameters;
 using UniversityManagementSystem.Application.Entities;
 using UniversityManagementSystem.Application.Interfaces;
 using UniversityManagementSystem.Application.Interfaces.Services;
 using UniversityManagementSystem.Application.LogicConstraints.Interfaces;
+using UniversityManagementSystem.Application.LogicConstraints.States;
 
 namespace UniversityManagementSystem.Application.Services;
 
 public class EnrollmentService : IEnrollmentService
 {
     private readonly IUnitOfWork _unitOfWork;
-    private readonly IEnrollmentBusinessValidation _validator;
-    private readonly IStudentBusinessValidation _studentValidator;
-    private readonly ICourseBusinessValidation _courseValidator;
+    private readonly IEnrollmentBusinessValidation _rules;
+    private readonly IStudentProgressService _studentProgressService;
 
-    public EnrollmentService(IUnitOfWork unitOfWork, IEnrollmentBusinessValidation validator,
-        IStudentBusinessValidation studentValidator, ICourseBusinessValidation courseValidator)
+    public EnrollmentService(
+        IUnitOfWork unitOfWork,
+        IEnrollmentBusinessValidation validator,
+        IStudentProgressService studentProgressService)
     {
         _unitOfWork = unitOfWork;
-        _validator = validator;
-        _studentValidator = studentValidator;
-        _courseValidator = courseValidator;
+        _rules = validator;
+        _studentProgressService = studentProgressService;
     }
+
     public async Task<EnrollmentResponseDto> EnrollStudentAsync(EnrollmentRequestDto dto)
     {
-        int semsterId = (await _unitOfWork.Repository<Semester>().GetOneAsync(s => s.IsActive == true)).Id;
-        
-        // This is Fuck The Performance I Know . In the Future I will Write Validation hits Database Less than this. 
-        if(await _validator.IsSuccessed(dto.StudentId, dto.CourseId))
-            throw new InvalidOperationException("You Already Succeeded in this Course");
-        if (!await _validator.IsSemesterValidForEnrollmentAsync(semsterId))
-            throw new InvalidOperationException("Semester is Not valid");
-        if ((await _studentValidator.CheckUserExistAsync(dto.StudentId)) == null)
-            throw new InvalidOperationException("There is no student with this id");
-        if ((await _courseValidator.CheckCourseExistAsync(dto.CourseId)) == null)
-            throw new InvalidOperationException("There is no course with this id");
-        if (await _validator.IsAlreadyEnrolledAsync(dto.StudentId, dto.CourseId, semsterId))
-            throw new InvalidOperationException("Student already enrolled");
-        if (await _validator.IsDropped(dto.StudentId, dto.CourseId, semsterId))
-            return await ReturnDroppedEnrollmentAsync(dto.StudentId, dto.CourseId, semsterId);
-        if (!await _courseValidator.IsCapacityAvailableAsync(dto.CourseId))
-            throw new InvalidOperationException("Course capacity Is Full");
-        if (!await _validator.IsPrerequisiteMetAsync(dto.StudentId, dto.CourseId))
-            throw new InvalidOperationException("You don't have the required Prerequisites");
-        if (await _validator.HasScheduleConflictAsync(dto.StudentId, dto.CourseId, semsterId))
-            throw new InvalidOperationException(
-                "Schedule conflict, Contact the college administration to check the possibility of registration");
-        if (await _validator.IsHaveMaxHours(dto.StudentId))
-            throw new InvalidOperationException("Student has Max Hours");
+        Semester? semester = await _unitOfWork.Repository<Semester>().GetOneAsync(s => s.IsActive);
+        if (semester == null) throw new InvalidOperationException("No active semester available");
+        if (semester.IsRegistrationOpen == false)
+            throw new InvalidOperationException("Registration is not open Currently");
+        Student? student = await _unitOfWork.Repository<Student>().GetOneAsync(s => s.Id == dto.StudentId);
+        if (student == null) throw new InvalidOperationException("Student not found");
 
-        Enrollment enrollment = new Enrollment
+        var course = await _unitOfWork.Repository<Course>().GetOneAsync(c => c.Id == dto.CourseId);
+        if (course == null) throw new InvalidOperationException("Course not found");
+        if (course.IsActive == false) throw new InvalidOperationException("Course is not Active");
+
+        var allEnrollments = (await _unitOfWork.Repository<Enrollment>().GetAsync(e =>
+                e.StudentId == dto.StudentId
+                && e.SemesterId == semester.Id,
+            includes: [e => e.Course]
+        )).ToList();
+
+        var gpa = await _studentProgressService.CalculateGPAAsync(dto.StudentId);
+        var state = new EnrollmentValidationState(
+            studentId: dto.StudentId,
+            semesterId: semester.Id,
+            allEnrollments: allEnrollments,
+            targetCourse: course,
+            gpa: gpa
+        );
+        bool dropped = false;
+        if (_rules.HasAlreadyCompletedCourse(state))
+            throw new InvalidOperationException("Student already completed this course");
+        if (_rules.IsAlreadyEnrolled(state))
+            throw new InvalidOperationException("Student already enrolled in this course");
+        if (_rules.IsDropped(state)) dropped = true;
+        if (!_rules.IsPrerequisiteMet(state)) throw new InvalidOperationException("Prerequisites not satisfied");
+        if (_rules.HasScheduleConflict(state)) throw new InvalidOperationException("Schedule conflict detected");
+        if (_rules.HasReachedMaxHours(state))
+            throw new InvalidOperationException("Student has reached maximum allowed credit hours");
+
+        Enrollment? enrollmentbase = new Enrollment();
+        if (dropped)
         {
-            StudentId = dto.StudentId,
-            CourseId = dto.CourseId,
-            SemesterId = semsterId,
-            CreatedAt = DateTime.UtcNow,
-            Status = EnrollmentStatus.Active,
-        };
-        await _unitOfWork.Repository<Enrollment>().CreateAsync(enrollment);
-        await _unitOfWork.CompleteAsync();
+            enrollmentbase = await _unitOfWork.Repository<Enrollment>().GetOneAsync(e =>
+                e.StudentId == dto.StudentId &&
+                e.CourseId == dto.CourseId &&
+                e.Status == EnrollmentStatus.Dropped);
+            enrollmentbase.Status = EnrollmentStatus.Active;
+            _unitOfWork.Repository<Enrollment>().Update(enrollmentbase);
+            await _unitOfWork.CompleteAsync();
+        }
+        else
+        {
+            enrollmentbase = new Enrollment
+            {
+                StudentId = dto.StudentId,
+                CourseId = dto.CourseId,
+                SemesterId = semester.Id,
+                Status = EnrollmentStatus.Active,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _unitOfWork.Repository<Enrollment>().CreateAsync(enrollmentbase);
+            await _unitOfWork.CompleteAsync();
+        }
 
-        var student = await _unitOfWork.Repository<Student>().GetOneAsync(e => e.Id == dto.StudentId);
-        var course = await _unitOfWork.Repository<Course>().GetOneAsync(e => e.Id == dto.CourseId);
         return new EnrollmentResponseDto
         {
-            EnrollmentId = enrollment.Id,
-            StudentName = $"{student?.FirstName} {student?.LastName}",
-            CourseTitle = course?.Title ?? "N/A",
-            EnrollmentDate = enrollment.EnrollmentDate,
+            EnrollmentId = enrollmentbase.Id,
+            StudentName = $"{student.FirstName} {student.LastName}",
+            CourseTitle = course.Title,
+            EnrollmentDate = enrollmentbase.CreatedAt,
             Status = "Active"
         };
     }
 
     public async Task<bool> DropCourseAsync(int studentId, int courseId)
     {
+        Semester? semester = await _unitOfWork.Repository<Semester>().GetOneAsync(s => s.IsActive);
+        if (semester == null) throw new InvalidOperationException("No active semester available");
+        if (semester.IsRegistrationOpen == false)
+            throw new InvalidOperationException("Registration is not open Currently");
+
         var e = await _unitOfWork.Repository<Enrollment>().GetOneAsync(e =>
             e.StudentId == studentId && e.CourseId == courseId && e.Status == EnrollmentStatus.Active);
         if (e == null)
@@ -82,29 +111,5 @@ public class EnrollmentService : IEnrollmentService
         _unitOfWork.Repository<Enrollment>().Update(e);
         var result = await _unitOfWork.CompleteAsync();
         return result > 0;
-    }
-
-    private async Task<EnrollmentResponseDto> ReturnDroppedEnrollmentAsync(int studentId, int courseId, int semesterId)
-    {
-        Enrollment? droppedSubject = await _unitOfWork.Repository<Enrollment>()
-            .GetOneAsync(e => e.StudentId == studentId
-                              && e.CourseId == courseId
-                              && e.SemesterId == semesterId
-                              && e.Status == EnrollmentStatus.Dropped);
-        droppedSubject.Status = EnrollmentStatus.Active;
-        _unitOfWork.Repository<Enrollment>().Update(droppedSubject);
-        await _unitOfWork.CompleteAsync();
-
-
-        var student = await _unitOfWork.Repository<Student>().GetOneAsync(e => e.Id == studentId);
-        var course = await _unitOfWork.Repository<Course>().GetOneAsync(e => e.Id == courseId);
-        return new EnrollmentResponseDto
-        {
-            EnrollmentId = droppedSubject.Id,
-            StudentName = $"{student?.FirstName} {student?.LastName}",
-            CourseTitle = course?.Title ?? "N/A",
-            EnrollmentDate = droppedSubject.EnrollmentDate,
-            Status = "Active"
-        };
     }
 }

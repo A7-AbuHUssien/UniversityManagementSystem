@@ -18,11 +18,11 @@ public class InstructorConfiguration : IEntityTypeConfiguration<Instructor>
             .IsRequired()
             .HasMaxLength(50);
 
-        builder.Property(i => i.Email)
+        builder.Property(i => i.PersonalEmail)
             .IsRequired()
             .HasMaxLength(150);
 
-        builder.HasIndex(i => i.Email)
+        builder.HasIndex(i => i.PersonalEmail)
             .IsUnique();
 
         builder.Property(i => i.Specialization)
@@ -32,5 +32,12 @@ public class InstructorConfiguration : IEntityTypeConfiguration<Instructor>
             .WithMany(d => d.Instructors)
             .HasForeignKey(i => i.DepartmentId)
             .OnDelete(DeleteBehavior.Restrict); 
+        
+        builder.HasOne(i => i.ApplicationUser)
+            .WithOne()
+            .HasForeignKey<Instructor>(i => i.ApplicationUserId)
+            .OnDelete(DeleteBehavior.Cascade);
+            
+        builder.HasIndex(i => i.ApplicationUserId).IsUnique();
     }
 }

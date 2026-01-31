@@ -1,4 +1,6 @@
 using System.Net;
+using System.Text.Json;
+using UniversityManagementSystem.Application.DTOs;
 
 namespace UniversityManagementSystem.Api.Middlewares;
 
@@ -25,29 +27,31 @@ public class ExceptionHandlingMiddleware
             await HandleExceptionAsync(context, ex);
         }
     }
-
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
         context.Response.ContentType = "application/json";
-
-        // Determine the status code based on the exception type
-        context.Response.StatusCode = exception switch
+        var statusCode = exception switch
         {
-            // Business logic and validation errors
-            InvalidOperationException => (int)HttpStatusCode.BadRequest, // 400
-            KeyNotFoundException => (int)HttpStatusCode.NotFound,        // 404
-            _ => (int)HttpStatusCode.InternalServerError                 // 500 (Generic server error)
+            InvalidOperationException or ArgumentException => (int)HttpStatusCode.BadRequest,
+            KeyNotFoundException => (int)HttpStatusCode.NotFound,
+            _ => (int)HttpStatusCode.InternalServerError
         };
-
-        var response = new
+        context.Response.StatusCode = statusCode;
+        var response = new ApiResponse<object>(null) 
         {
-            StatusCode = context.Response.StatusCode,
-            Message = exception.Message, // The message provided in your Validation logic
-            
-            // Include stack trace only in local development for security
-            Details = context.Request.Host.Host.Contains("localhost") ? exception.StackTrace : null 
+            Succeeded = false,
+            Message = statusCode == (int)HttpStatusCode.InternalServerError 
+                ? "Internal Server Error. Please try again later." 
+                : exception.Message,
+            Errors = new List<string> { exception.Message } 
         };
+        if (exception.InnerException != null)
+        {
+            response.Errors.Add(exception.InnerException.Message);
+        }
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var json = JsonSerializer.Serialize(response, options);
 
-        return context.Response.WriteAsJsonAsync(response);
+        return context.Response.WriteAsync(json);
     }
 }

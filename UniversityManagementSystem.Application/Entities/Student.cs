@@ -1,10 +1,12 @@
+using Microsoft.AspNetCore.Identity;
+
 namespace UniversityManagementSystem.Application.Entities;
 
 public class Student : BaseEntity
 {
     public string FirstName { get; set; }
     public string LastName { get; set; }
-    public string Email { get; set; }
+    public string PersonalEmail { get; set; }
     public string Phone { get; set; }
     public DateOnly DateOfBirth { get; set; }
 
@@ -15,4 +17,7 @@ public class Student : BaseEntity
 
     public bool IsDeleted { get; set; }
     public DateTime? DeletedAt { get; set; }
+    
+    public Guid ApplicationUserId { get; set; } 
+    public IdentityUser<Guid> ApplicationUser { get; set; }
 }

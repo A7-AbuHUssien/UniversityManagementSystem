@@ -1,97 +1,56 @@
 using UniversityManagementSystem.Application.Entities;
-using UniversityManagementSystem.Application.Interfaces;
-using UniversityManagementSystem.Application.Interfaces.Services;
 using UniversityManagementSystem.Application.LogicConstraints.Interfaces;
+using UniversityManagementSystem.Application.LogicConstraints.States;
 
 namespace UniversityManagementSystem.Application.LogicConstraints;
 
 public class EnrollmentBusinessValidation : IEnrollmentBusinessValidation
 {
-    private readonly IUnitOfWork _unitOfWork;
-    private readonly IStudentProgressService _studentProgressService;
 
-    public EnrollmentBusinessValidation(IUnitOfWork unitOfWork, IStudentProgressService studentProgressService)
+    public bool IsDropped(EnrollmentValidationState state)
     {
-        _unitOfWork = unitOfWork;
-        _studentProgressService = studentProgressService;
+        return state.AllEnrollments.Any(e =>
+            e.CourseId == state.TargetCourse.Id
+            && e.Status == EnrollmentStatus.Dropped);
     }
 
-    public Task<bool> IsDropped(int studentId, int courseId, int semesterId)
+    public bool IsAlreadyEnrolled(EnrollmentValidationState state)
     {
-        var res = _unitOfWork.Repository<Enrollment>()
-            .AnyAsync(e => e.StudentId == studentId
-                           && e.CourseId == courseId
-                           && e.SemesterId == semesterId
-                           && e.Status == EnrollmentStatus.Dropped);
-        return res;
+        return state.AllEnrollments.Any(e =>
+            e.CourseId == state.TargetCourse.Id
+            && e.Status == EnrollmentStatus.Active);
     }
 
-    public Task<bool> IsSuccessed(int studentId, int courseId)
+    public bool HasScheduleConflict(EnrollmentValidationState state)
     {
-        var res = _unitOfWork.Repository<Enrollment>()
-            .AnyAsync(e => e.StudentId == studentId
-                           && e.CourseId == courseId
-                           && e.Status == EnrollmentStatus.Completed);
-        return res;
-    }
-    public async Task<bool> IsAlreadyEnrolledAsync(int studentId, int courseId, int semesterId)
-    {
-        return await _unitOfWork.Repository<Enrollment>()
-            .AnyAsync(e => e.StudentId == studentId
-                           && e.CourseId == courseId
-                           && e.SemesterId == semesterId
-                           && e.Status == EnrollmentStatus.Active);
-    }
-
-    public async Task<bool> IsPrerequisiteMetAsync(int studentId, int courseId)
-    {
-        Course? course = await _unitOfWork.Repository<Course>().GetOneAsync(e => e.Id == courseId);
-        if (course == null)
-            return false;
-        if (course.PrerequisiteId == null)
-            return true;
-
-        return await _unitOfWork.Repository<Enrollment>().AnyAsync(e =>
-            e.StudentId == studentId &&
-            e.CourseId == course.PrerequisiteId &&
-            e.NumericScore >= 60);
-    }
-
-    public async Task<bool> HasScheduleConflictAsync(int studentId, int courseId, int semesterId)
-    {
-        var newCourse = await _unitOfWork.Repository<Course>().GetOneAsync(c => c.Id == courseId);
-
-        if (newCourse == null) return false;
-
-        var studentEnrollments = await _unitOfWork.Repository<Enrollment>().GetAsync(
-            expression: e => e.StudentId == studentId
-                             && e.SemesterId == semesterId
-                             && e.Status == EnrollmentStatus.Active,
-            includes: [e => e.Course]
+        return state.AllEnrollments.Any(e =>
+            e.Course.Day == state.TargetCourse.Day &&
+            e.Course.Hour == state.TargetCourse.Hour&&
+            e.Status == EnrollmentStatus.Active
         );
-
-        return studentEnrollments.Any(e =>
-            e.Course.Day == newCourse.Day &&
-            e.Course.Hour == newCourse.Hour);
     }
 
-    public async Task<bool> IsSemesterValidForEnrollmentAsync(int semesterId)
+    public bool HasReachedMaxHours(EnrollmentValidationState state)
     {
-        var semester = await _unitOfWork.Repository<Semester>().GetOneAsync(s => s.Id == semesterId);
-        if (semester == null || !semester.IsActive) return false;
-        DateOnly today = DateOnly.FromDateTime(DateTime.Now);
-        if (today > semester.EndDate)
-            return false;
-        return true;
+        int currentCredits = state.AllEnrollments.Where(e => e.Status == EnrollmentStatus.Active)
+            .Sum(e => e.Course.Credits);
+        int maxAllowedCredits = state.Gpa <= 2.0m ? 15 : 18;
+        return currentCredits + state.TargetCourse.Credits > maxAllowedCredits;
     }
 
-    public async Task<bool> IsHaveMaxHours(int studentId)
+    public bool IsPrerequisiteMet(EnrollmentValidationState state)
     {
-        decimal gpa = await _studentProgressService.CalculateGPAAsync(studentId);
-        var subs = await _unitOfWork.Repository<Enrollment>().GetAsync(e => e.StudentId == studentId &&
-                                                                            e.Semester.IsActive == true,
-            includes: [e => e.Semester, e => e.Course]);
-        int studentHour = subs.Sum(e => e.Course.Credits);
-        return (gpa <= (decimal)2.0) ?  studentHour >= 15 : studentHour >= 18;
+        int? preRequisiteId = state.TargetCourse.PrerequisiteId;
+        if (preRequisiteId == null) return true;
+        return state.AllEnrollments.Any(e => e.Course.PrerequisiteId == preRequisiteId && e.Status == EnrollmentStatus.Completed);
+    }
+
+    public bool HasAlreadyCompletedCourse(EnrollmentValidationState state)
+    {
+        return state.AllEnrollments.Any(e =>
+            e.CourseId == state.TargetCourse.Id &&
+            e.NumericScore >= 60&&
+            e.Status == EnrollmentStatus.Completed
+        );
     }
 }

@@ -15,8 +15,8 @@ public class StudentValidator : AbstractValidator<StudentDto>
         RuleFor(s => s.LastName)
             .NotEmpty().WithMessage("Last Name is required.");
 
-        RuleFor(s => s.Email)
-            .NotEmpty().WithMessage("Email address is required.")
+        RuleFor(s => s.PersonalEmail)
+            .NotEmpty().WithMessage("PersonalEmail address is required.")
             .EmailAddress().WithMessage("A valid email format is required.");
 
         RuleFor(s => s.Phone)

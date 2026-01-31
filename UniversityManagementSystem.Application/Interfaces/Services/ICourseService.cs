@@ -8,4 +8,5 @@ public interface ICourseService
     Task<CourseDto?> GetByIdAsync(int id);
     Task<CreateCourseDto> CreateAsync(CreateCourseDto dto);
     Task<bool> UpdateAsync(int id, CreateCourseDto dto);
+    Task<string> ActivationAsync(int courseId);
 }

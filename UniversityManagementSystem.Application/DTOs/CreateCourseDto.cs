@@ -8,5 +8,6 @@ public class CreateCourseDto
     public int DepartmentId { get; set; }
     public int InstructorId { get; set; }
     public int MaxCapacity { get; set; }
+    public DayOfWeek DayOfWeek { get; set; }
     public int Hour { get; set; }
 }

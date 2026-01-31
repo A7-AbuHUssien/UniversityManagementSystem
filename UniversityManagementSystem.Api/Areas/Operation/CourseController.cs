@@ -1,5 +1,8 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Build.Tasks;
+using UniversityManagementSystem.Application.Common;
 using UniversityManagementSystem.Application.DTOs;
 using UniversityManagementSystem.Application.Interfaces.Services;
 
@@ -7,6 +10,7 @@ namespace UniversityManagementSystem.Api.Areas.Operation;
 [Area("Operation")]
 [Route("api/[area]/[controller]")]
 [ApiController]
+[Authorize(Roles = AppRoles.OPERATION)]
 public class CourseController : ControllerBase
 {
     private readonly ICourseService _courseService;
@@ -33,5 +37,16 @@ public class CourseController : ControllerBase
     {
         await _courseService.UpdateAsync(id, dto);
         return Ok(new { Message = "Course updated successfully." });
+    }
+
+    [HttpPatch("course_activation/{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> Activation(int id)
+    {
+        return Ok(await _courseService.ActivationAsync(id));
     }
 }

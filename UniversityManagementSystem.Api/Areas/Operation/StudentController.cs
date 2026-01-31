@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using UniversityManagementSystem.Application.Common;
 using UniversityManagementSystem.Application.DTOs;
 using UniversityManagementSystem.Application.DTOs.Parameters;
 using UniversityManagementSystem.Application.Interfaces.Services;
@@ -6,8 +8,9 @@ using UniversityManagementSystem.Application.Interfaces.Services;
 namespace UniversityManagementSystem.Api.Areas.Operation;
 
 [Area("Operation")]
-[Route("api/[area]/[controller]")] // URL: api/admin/student
+[Route("api/[area]/[controller]")]
 [ApiController]
+[Authorize(Roles = AppRoles.OPERATION)]
 public class StudentController : ControllerBase
 {
     private readonly IStudentService _studentService;
@@ -71,6 +74,6 @@ public class StudentController : ControllerBase
         var deleted = await _studentService.DeleteStudentAsync(id);
         if (!deleted) return NotFound();
         
-        return NoContent(); // 204 is best for successful deletes
+        return NoContent();
     }
 }

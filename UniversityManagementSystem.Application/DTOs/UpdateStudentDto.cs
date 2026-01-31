@@ -11,5 +11,5 @@ public class UpdateStudentDto
 
     public DateOnly DateOfBirth { get; set; }
 
-    public string? DepartmentName { get; set; }
+    public int DepartmentId { get; set; } = -1;
 }

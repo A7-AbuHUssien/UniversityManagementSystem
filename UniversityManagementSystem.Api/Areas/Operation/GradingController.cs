@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using UniversityManagementSystem.Application.Common;
 using UniversityManagementSystem.Application.DTOs;
 using UniversityManagementSystem.Application.Interfaces.Services;
 
@@ -8,6 +10,8 @@ namespace UniversityManagementSystem.Api.Areas.Operation;
 [Area("Operations")]
 [Route("api/[area]/[controller]")]
 [ApiController]
+[Authorize(Roles = AppRoles.OPERATION)]
+
 public class GradingController : ControllerBase
 {
     private readonly IGradingService _gradingService;

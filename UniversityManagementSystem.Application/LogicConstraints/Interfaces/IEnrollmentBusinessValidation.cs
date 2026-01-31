@@ -1,12 +1,14 @@
+using UniversityManagementSystem.Application.LogicConstraints.States;
+
 namespace UniversityManagementSystem.Application.LogicConstraints.Interfaces;
 
 public interface IEnrollmentBusinessValidation
 {
-    Task<bool> IsAlreadyEnrolledAsync(int studentId, int courseId, int semesterId);
-    Task<bool> IsPrerequisiteMetAsync(int studentId, int courseId);
-    Task<bool> HasScheduleConflictAsync(int studentId, int courseId, int semesterId);
-    Task<bool> IsSemesterValidForEnrollmentAsync(int semesterId);
-    Task<bool> IsHaveMaxHours(int studentId);
-    Task<bool> IsDropped(int studentId, int courseId, int semesterId);
-    Task<bool> IsSuccessed(int studentId, int courseId);
+    bool IsDropped(EnrollmentValidationState state);
+    bool IsAlreadyEnrolled(EnrollmentValidationState state);
+    bool HasScheduleConflict(EnrollmentValidationState state);
+    bool HasReachedMaxHours(EnrollmentValidationState state);
+    bool IsPrerequisiteMet(EnrollmentValidationState state);
+    bool HasAlreadyCompletedCourse(EnrollmentValidationState state);
+
 }

@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using UniversityManagementSystem.Application.Common;
 using UniversityManagementSystem.Application.DTOs;
 using UniversityManagementSystem.Application.Interfaces.Services;
 
@@ -7,6 +9,8 @@ namespace UniversityManagementSystem.Api.Areas.Admin;
 [Area("Admin")]
 [Route("api/[area]/[controller]")]
 [ApiController]
+[Authorize(Roles = AppRoles.ADMIN)]
+
 public class DepartmentController : ControllerBase
 {
     private readonly IDepartmentService _departmentService;

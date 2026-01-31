@@ -31,32 +31,25 @@ public class SemesterService : ISemesterService
     public async Task<SemesterDto> CreateSemesterAsync(SemesterDto semesterDto)
     {
         var semester = semesterDto.Adapt<Semester>();
-        
-        // Logic: If this is the first semester, or forced active, handle it.
         await _unitOfWork.Repository<Semester>().CreateAsync(semester);
         await _unitOfWork.CompleteAsync();
-        
+        if (semesterDto.IsActive)
+            await ActivateSemesterAsync(semester.Id);
         return semester.Adapt<SemesterDto>();
     }
 
     public async Task<bool> ActivateSemesterAsync(int id)
     {
         var semesterRepo = _unitOfWork.Repository<Semester>();
-        
-        // 1. Find the semester to activate
         var targetSemester = await semesterRepo.GetOneAsync(s => s.Id == id);
         if (targetSemester == null) return false;
-
-        // 2. Deactivate all other semesters
         var allSemesters = await semesterRepo.GetAsync();
         foreach (var s in allSemesters)
         {
             s.IsActive = false;
+            s.IsRegistrationOpen = false;
         }
-
-        // 3. Activate the target one
         targetSemester.IsActive = true;
-        
         await _unitOfWork.CompleteAsync();
         return true;
     }
