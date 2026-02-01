@@ -52,19 +52,16 @@ public class TokenService : ITokenService
     }
     public async Task<ApiResponse<AuthResponseDto>> RefreshTokenAsync(RefreshTokenRequestDto model)
 {
-    // 1. فك التوكن القديم واستخراج البيانات منه (حتى لو منتهي)
     var principal = GetPrincipalFromExpiredToken(model.Token);
     if (principal == null) 
         return new ApiResponse<AuthResponseDto>("Invalid access token");
 
-    // 2. البحث عن الـ Refresh Token في الداتابيز
     var storedToken = (await _unitOfWork.Repository<UserRefreshToken>()
         .GetOneAsync(t => t.Token == model.RefreshToken && !t.IsRevoked));
 
     if (storedToken == null || storedToken.ExpiryDate < DateTime.UtcNow)
         return new ApiResponse<AuthResponseDto>("Invalid or expired refresh token");
 
-    // 3. 🛡️ الجنزير الأمني: التأكد إن التوكن والـ Refresh Token بتوع نفس الشخص
     var userIdFromToken = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if (userIdFromToken != storedToken.UserId.ToString())
         return new ApiResponse<AuthResponseDto>("Token mismatch! This session is suspicious.");
@@ -72,9 +69,8 @@ public class TokenService : ITokenService
     var user = await _userManager.FindByIdAsync(storedToken.UserId.ToString());
     if (user == null) return new ApiResponse<AuthResponseDto>("User not found");
 
-    // ... باقي الكود بتاعك (توليد التوكينات الجديدة والحفظ)
     var roles = await _userManager.GetRolesAsync(user);
-    var newJwtToken = GenerateJwtToken(user, roles); // تأكد إن دي بتنادي الميثود الصح
+    var newJwtToken = GenerateJwtToken(user, roles);
     var newRefreshToken = GenerateRefreshToken();
 
     storedToken.IsRevoked = true;

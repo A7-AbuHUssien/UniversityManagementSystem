@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using UniversityManagementSystem.Application.DTOs.Identity_DTOs;
 using UniversityManagementSystem.Application.Interfaces.Services;
@@ -102,7 +101,6 @@ public class AccountController : ControllerBase
     [HttpPost("logout")]
     public async Task<IActionResult> Logout([FromBody] string refreshToken)
     {
-        // ملاحظة: لو شغال HttpOnly Cookies هنجيب التوكين من الكوكي مش من البادي
         var result = await _authService.LogOutAsync(refreshToken);
         if (!result.Succeeded) return BadRequest(result);
         return Ok(result);
