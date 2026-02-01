@@ -7,7 +7,6 @@ public class ApiResponse<T>
     public T Data { get; set; }
     public List<string> Errors { get; set; }
 
-    // Constructor للنجاح
     public ApiResponse(T data, string message = null)
     {
         Succeeded = true;
@@ -15,7 +14,6 @@ public class ApiResponse<T>
         Data = data;
     }
 
-    // Constructor للفشل
     public ApiResponse(string message)
     {
         Succeeded = false;

@@ -26,13 +26,10 @@ public class UserService : IUserService
         {
             var roles = await _userManager.GetRolesAsync(user);
         
-            // استبعاد أي يوزر عنده رتبة SuperAdmin
             if (roles.Contains(AppRoles.SUPER_ADMIN)) continue;
 
-            // تحديد نوع المستخدم لسهولة العرض
             string userType = roles.FirstOrDefault() ?? "No Role";
 
-            // جلب الاسم الكامل من جداول الـ Domain
             string fullName = await GetUserFullNameAsync(user.Id, roles);
 
             resultList.Add(new UserManagementDto
@@ -43,7 +40,7 @@ public class UserService : IUserService
                 Roles = roles.ToList(),
                 IsActive = user.EmailConfirmed,
                 UserType = userType,
-                JoinedAt = DateTime.UtcNow // يمكنك استبدالها بحقل حقيقي إذا كان موجوداً في الـ IdentityUser
+                JoinedAt = DateTime.UtcNow
             });
         }
 
@@ -59,7 +56,6 @@ public class UserService : IUserService
         if (roles.Contains(AppRoles.SUPER_ADMIN)) 
             return new ApiResponse<bool>("Cannot modify a Super Admin account");
 
-        // تغيير حالة التفعيل (Block/Unblock)
         user.EmailConfirmed = !user.EmailConfirmed; 
         var result = await _userManager.UpdateAsync(user);
 
