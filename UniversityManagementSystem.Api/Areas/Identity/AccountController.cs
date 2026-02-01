@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using UniversityManagementSystem.Application.DTOs.Identity_DTOs;
+using UniversityManagementSystem.Application.Interfaces.Services;
 using UniversityManagementSystem.Application.Interfaces.Services.Identity;
 
 namespace UniversityManagementSystem.Api.Areas.Identity;
@@ -13,10 +14,18 @@ namespace UniversityManagementSystem.Api.Areas.Identity;
 public class AccountController : ControllerBase
 {
     private readonly IAuthService _authService;
-
-    public AccountController(IAuthService authService)
+    private readonly IPasswordService _passwordService;
+    private readonly IProfileService _profileService;
+    private readonly IRegistrationService _registrationService;
+    private readonly ITokenService _tokenService;
+    public AccountController(IAuthService authService, IPasswordService passwordService, IProfileService profileService,
+        IRegistrationService registrationService, ITokenService tokenService)
     {
         _authService = authService;
+        _passwordService = passwordService;
+        _profileService = profileService;
+        _registrationService = registrationService;
+        _tokenService = tokenService;
     }
 
     [HttpPost("login")]
@@ -30,7 +39,7 @@ public class AccountController : ControllerBase
     [HttpPost("register/student")]
     public async Task<IActionResult> RegisterStudent([FromBody] RegisterStudentDto model)
     {
-        var result = await _authService.RegisterStudentAsync(model);
+        var result = await _registrationService.RegisterStudentAsync(model);
         if (!result.Succeeded) return BadRequest(result);
         return Ok(result);
     }
@@ -38,7 +47,7 @@ public class AccountController : ControllerBase
     [HttpPost("register/instructor")]
     public async Task<IActionResult> RegisterInstructor([FromBody] RegisterInstructorDto model)
     {
-        var result = await _authService.RegisterInstructorAsync(model);
+        var result = await _registrationService.RegisterInstructorAsync(model);
         if (!result.Succeeded) return BadRequest(result);
         return Ok(result);
     }
@@ -46,7 +55,7 @@ public class AccountController : ControllerBase
     [HttpPost("forgot-password")]
     public async Task<IActionResult> ForgotPassword([FromBody] string email)
     {
-        var result = await _authService.ForgotPasswordAsync(email);
+        var result = await _passwordService.ForgotPasswordAsync(email);
         if (!result.Succeeded) return BadRequest(result);
         return Ok(result);
     }
@@ -54,7 +63,7 @@ public class AccountController : ControllerBase
     [HttpPost("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordDto model)
     {
-        var result = await _authService.ResetPasswordAsync(model);
+        var result = await _passwordService.ResetPasswordAsync(model);
         if (!result.Succeeded) return BadRequest(result);
         return Ok(result);
     }
@@ -66,7 +75,7 @@ public class AccountController : ControllerBase
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
 
-        var result = await _authService.ChangePasswordAsync(Guid.Parse(userIdClaim), model);
+        var result = await _passwordService.ChangePasswordAsync(Guid.Parse(userIdClaim), model);
         if (!result.Succeeded) return BadRequest(result);
         return Ok(result);
     }
@@ -78,9 +87,24 @@ public class AccountController : ControllerBase
         var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
 
-        var result = await _authService.UpdateProfileAsync(Guid.Parse(userIdClaim), model);
+        var result = await _profileService.UpdateProfileAsync(Guid.Parse(userIdClaim), model);
         if (!result.Succeeded) return BadRequest(result);
         return Ok(result);
     }
+    [HttpPost("refresh-token")]
+    public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequestDto model)
+    {
+        var result = await _tokenService.RefreshTokenAsync(model);
+        if (!result.Succeeded) return Unauthorized(result);
+        return Ok(result);
+    }
 
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout([FromBody] string refreshToken)
+    {
+        // ملاحظة: لو شغال HttpOnly Cookies هنجيب التوكين من الكوكي مش من البادي
+        var result = await _authService.LogOutAsync(refreshToken);
+        if (!result.Succeeded) return BadRequest(result);
+        return Ok(result);
+    }
 }

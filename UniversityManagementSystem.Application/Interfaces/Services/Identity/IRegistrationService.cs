@@ -3,8 +3,8 @@ using UniversityManagementSystem.Application.DTOs.Identity_DTOs;
 
 namespace UniversityManagementSystem.Application.Interfaces.Services.Identity;
 
-public interface IAuthService
+public interface IRegistrationService
 {
-    Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginDto model);
-    Task<ApiResponse<bool>> LogOutAsync(string refreshToken);
+    Task<ApiResponse<string>> RegisterStudentAsync(RegisterStudentDto model);
+    Task<ApiResponse<string>> RegisterInstructorAsync(RegisterInstructorDto model);
 }

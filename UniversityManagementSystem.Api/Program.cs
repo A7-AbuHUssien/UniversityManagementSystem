@@ -81,7 +81,9 @@ builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped(typeof(UniversityManagementSystem.Application.Interfaces.Services.IEmailService),
     typeof(UniversityManagementSystem.Application.Services.EmailService));
 builder.Services.AddScoped<IUserService, UserService>();
-
+builder.Services.AddScoped<IPasswordService, PasswordService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IRegistrationService, RegistrationService>();
 // --- 5. Validation ---
 builder.Services.AddFluentValidationAutoValidation();
 builder.Services.AddValidatorsFromAssemblyContaining<StudentValidator>();

@@ -3,8 +3,7 @@ using UniversityManagementSystem.Application.DTOs.Identity_DTOs;
 
 namespace UniversityManagementSystem.Application.Interfaces.Services.Identity;
 
-public interface IAuthService
+public interface IProfileService
 {
-    Task<ApiResponse<AuthResponseDto>> LoginAsync(LoginDto model);
-    Task<ApiResponse<bool>> LogOutAsync(string refreshToken);
+    Task<ApiResponse<bool>> UpdateProfileAsync(Guid userId, UpdateProfileDto model);
 }
