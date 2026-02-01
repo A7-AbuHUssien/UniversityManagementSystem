@@ -35,7 +35,7 @@ This is a **backend-only system** intended to be consumed by any frontend (Web /
 - **Language:** C#
 - **Database:** SQL Server
 - **ORM:** Entity Framework Core
-- **Authentication:** JWT
+- **Authentication:** JWT + Refresh Tokens
 - **Architecture Style:** Layered Architecture
 - **Patterns Used:** Repository, Unit of Work
 
